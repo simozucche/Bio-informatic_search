@@ -1,0 +1,656 @@
+from Bio.PDB import PDBList, MMCIFParser, PDBParser, PDBIO
+from Bio.PDB.PDBIO import Select
+import os
+import xpdb
+from biopandas.pdb import PandasPdb
+import pandas as pd
+import numpy as np
+import math
+
+#Bio.PDB: It imports various modules from the Biopython library that provide tools for parsing, manipulating, and analyzing PDB files
+#PDBList, MMCIFParser, PDBParser, PDBIO: These are specific modules from Biopython's PDB module that allow downloading PDB files from the PDB database, parsing PDB files in different formats (CIF and PDB), and performing input/output operations on PDB files.
+#Select: It imports a sub-module called Select from Bio.PDB.PDBIO. This module is used for selecting specific atoms or residues in a PDB file during the output writing process.
+#os: This module provides a way to interact with the operating system. It can be used for tasks such as manipulating file paths, creating directories, or executing system commands.
+#xpdb: This is a module from an external library that is not part of the standard Python libraries. 
+#biopandas.pdb: This library provides a way to parse PDB files into Pandas DataFrames, which allows for efficient data manipulation and analysis.
+#pandas: This library is widely used for data manipulation and analysis in Python. It provides high-performance data structures and data analysis tools.
+#numpy: This library provides support for large, multi-dimensional arrays and matrices, along with a collection of mathematical functions to operate on these arrays efficiently.
+#math: It is a built-in Python module that provides various mathematical operations and functions
+
+pdbl = PDBList()
+save_folder = r"C:\Users\Acer\Desktop\temporanee\BioPy\prot"  # Specify the desired parent folder path
+
+pdb_codes = ["1d1w","2yet","1d3y","1d4s","1d4v","1d6i","1d4t","1d1v","3m7c","1y8y","1bb5","1d3u","1c9x","1d1t","1cy7",
+             "4fai","1cpr","3m89","1d4e","1d5y","1d1a","1d1u","3g6q","1lid","1c96","1d3k","1d6o","1d2g","1d3v","1d2u",
+             "1b38","5f8r","1d6s","2d1x","1d4c","4u1b","1nbf","1li3","4po6","1fp6","1d3q","1c8d","1d2r","1d4u","1d5b",
+             "1cq7","1d6r","1xkb","1d6a","1d4h","1bn7","1f6a","5goq","1y9t","1ckl","1cqk","1d2j","1b8s","1d3b","2x28",
+             "3m3w","3qwe","1c4a","1d5f","1bkx","1d1z","1ci0","1d2n","1d5s","1d1y","3m5z","5j9f","4xqj","1x2p","1d4j",
+             "1d5x","1d3t","1d2z","1cpx","1d5m","1d2e","1d0b","2w9e","2xff","1d5v","5jms","1d6p","3ob4","1d1p","5a66",
+             "5bwt","5o4v","1d4x","1cn2","3d63","1d5a","1d4a","1d2v","1d4o","1d6n","1c22","1crm","4g6m","1d2q","5a3x",
+             "3p99","1e6e","1d4b","1d5r","3h11","1d3c","1ckq","1d2a","1d4n","1bg4","1gp1","4zi4","1d2s","1d5l","1bir",
+             "1k0n","1d5t","1ct5","4z9b","1h9b","3kqo","1dlw","1d1i","1d3d","1f25","1d4d","1d6f","1bnk","1bcs","1cil",
+             "1d6e","1d0d","1d2f","1g6e","1bvg","1d2b","1c5q","1cpt","4i1v","1d2c","1d2h","1cpy","1d1n","5h9v","1d2t",
+             "1d6b","1d4w","2w3j","1chh","1qz8","1bt1","5juv","1d4f","1d4y","3l9z","1cvs","1d3s","1d5z","1d6h","3ml4",
+             "1d3p","1d1q","2xwc","1cvi","1d3w","5wiu","1z2b","1cvf","1e8l","1d2m","1d6m","1cxz","4xwr","1d6q","1o3b",
+             "1d1s","1d1x","4k72","1d2k","5hxb","1d4i","1d4p","1e3g","5dks","1i6a","1i69","3ho7","1gp1","2he3","2r37",
+             "2obi","6hn3","7fc2","2p31","3cyn"]
+
+#pdb_codes = ["1q6g","3u76","4hd1",] this ensemble represent all the proteins currently present in the PDB database containing a Selenocysteine residue
+# Remove duplicates from pdb_codes eventually present
+pdb_codes = list(set(pdb_codes))
+
+for pdb_code in pdb_codes:
+    code_folder = os.path.join(save_folder, pdb_code)
+    os.makedirs(code_folder, exist_ok=True)
+    pdbl.retrieve_pdb_file(pdb_code, pdir=code_folder)
+
+    cif_path = os.path.join(save_folder, pdb_code, pdb_code + ".cif")
+    pdb_path = os.path.join(save_folder, pdb_code, pdb_code + ".pdb")
+
+    if not os.path.isfile(cif_path):
+        print(f"Skipping PDB code {pdb_code}. CIF file not found.")
+        continue
+
+    try:
+        parser = MMCIFParser(structure_builder=xpdb.SloppyStructureBuilder(), QUIET=True)
+        structure = parser.get_structure(pdb_code, cif_path)
+
+        # Save structure in PDB format
+        io = PDBIO()
+        io.set_structure(structure)
+        io.save(pdb_path)
+
+    except Exception as e:
+        print(f"Error retrieving structure for PDB code {pdb_code}: {e}")
+        continue
+        
+#The previous code section retrieves PDB files for a list of PDB codes, 
+#saves them in separate folders, parses the CIF file for each PDB code,
+#and saves the structure in PDB format. If any errors occur during the process,
+#it prints an error message and continues to the next iteration.
+#####################################################################################################################################################################################        
+        
+#Select the Chain
+    chain_id = 'A'  # Specify the chain ID you want to work with
+    N = None
+
+    for model in structure:
+        if chain_id in model:
+            N = model[chain_id]
+            break
+
+    if N is not None:
+        io = PDBIO()
+        io.set_structure(N)
+        residue = N.get_residues()
+
+#The previous code section is focused on selecting a specific chain from a PDB structure and extracting its residues.
+
+        class ResSelect(Select):
+            def accept_residue(self, residue):
+                if residue.get_resname() == "CYS" or residue.get_resname() == "TYR": #residue.get_resname() == "SEC" for the selenoproteins analysis
+                    return 1
+                else:
+                    return 0
+    
+        io.save(os.path.join(save_folder, pdb_code, "residuesCysTyr.pdb"), select=ResSelect())
+        
+        parser = PDBParser(PERMISSIVE=True,structure_builder=xpdb.SloppyStructureBuilder())
+
+        r = parser.get_structure("residuesCysTyr", os.path.join(save_folder, pdb_code, "residuesCysTyr.pdb"))
+        io = PDBIO()
+        io.set_structure(r)
+        atom=r.get_atoms()
+
+        class AtomSelect1(Select):
+            def accept_atom(self, atom):
+                if atom.get_name() in ["N", "CA", "C", "O", "CB", "OXT"]:
+                    return 1
+                else:
+                    return 0
+
+        io.save(os.path.join(save_folder, pdb_code, "atoms1CysTyr.pdb"), select=AtomSelect1())
+
+        class AtomSelect(Select):
+            def accept_atom(self, atom):
+                if atom.get_name() in ["SG", "SD", "CG", "CD1", "OH", "CD2", "CE1", "CE2", "CZ"]: # adding also "SE" for the selenoprotein analysis
+                    return 1
+                else:
+                    return 0
+        
+        io.save(os.path.join(save_folder, pdb_code, "atomsCysTyr.pdb"), select=AtomSelect())
+
+    else:
+        print(f"Chain ID '{chain_id}' not found in PDB {pdb_code}.")
+
+#the previous code section defines custom selection classes to choose specific residues and atoms from a protein structure, 
+#saves the selected residues as "residuesCysTyr.pdb",
+#and saves the selected atoms as "atoms1CysTyr.pdb" and "atomsCysTyr.pdb".
+######################################################################################################################################################################################        
+
+# Select the Chain
+    chain_id = 'A'  # Specify the chain ID you want to work with
+    N = None
+
+    for model in structure:
+        if chain_id in model:
+            N = model[chain_id]
+            break
+
+    if N is not None:
+        io = PDBIO()
+        io.set_structure(N)
+        residue = N.get_residues()
+
+        class ResSelect(Select):
+            def accept_residue(self, residue):
+                if residue.get_resname() == "CYS" or residue.get_resname() == "PHE":
+                    return 1
+                else:
+                    return 0
+        
+        residue_file_path1 = os.path.join(save_folder, pdb_code, "residuesCysPhe.pdb")
+        io.save(residue_file_path1, select=ResSelect())
+        
+        parser = PDBParser(PERMISSIVE=True,structure_builder=xpdb.SloppyStructureBuilder())
+
+        r = parser.get_structure("residuesCysPhe", residue_file_path1)
+        io = PDBIO()
+        io.set_structure(r)
+        atom=r.get_atoms()
+
+        class AtomSelect1(Select):
+            def accept_atom(self, atom):
+                if atom.get_name() in ["N", "CA", "C", "O", "CB", "OXT"]:
+                    return 1
+                else:
+                    return 0
+
+        io.save(os.path.join(save_folder, pdb_code, "atoms1CysPhe.pdb"), select=AtomSelect1())
+
+        class AtomSelect(Select):
+            def accept_atom(self, atom):
+                if atom.get_name() in ["SG", "SD", "CG", "CD1", "CD2", "CE1", "CE2", "CZ"]:
+                    return 1
+                else:
+                    return 0
+
+        io.save(os.path.join(save_folder, pdb_code, "atomsCysPhe.pdb"), select=AtomSelect())
+
+    else:
+        print(f"Chain ID '{chain_id}' not found in PDB {pdb_code}.")
+
+# This code part as the previous one do the same concetually but with different residues (CYS and PHE) 
+######################################################################################################################################################################################    
+    
+    ppdb = PandasPdb()
+
+    data_res = ppdb.read_pdb(os.path.join(save_folder, pdb_code, "atoms1CysTyr.pdb"))
+
+    element = ppdb.df['ATOM']['element_symbol']
+    x = ppdb.df['ATOM']['x_coord']
+    y = ppdb.df['ATOM']['y_coord']
+    z = ppdb.df['ATOM']['z_coord']
+    k = pd.DataFrame([element, x , y , z], index=['element', 'x', 'y', 'z'])
+    j = pd.DataFrame.transpose(k)
+
+    data=ppdb.read_pdb(os.path.join(save_folder, pdb_code, "atomsCysTyr.pdb"))
+
+
+    element=ppdb.df['ATOM']['element_symbol']
+    x=ppdb.df['ATOM']['x_coord']
+    y=ppdb.df['ATOM']['y_coord']
+    z=ppdb.df['ATOM']['z_coord']
+    #print(z)
+
+    g = pd.DataFrame([element, x , y , z], index=['element', 'x', 'y', 'z'])
+    d = pd.DataFrame.transpose(g)
+    S = d.loc[d['element']=='S']
+    O = d.loc[d['element']=='O']
+    C = d.loc[d['element']=='C']
+
+    D = []
+
+    # Define the range and step for the loop
+    start = 0
+    end = len(C)
+    step = 6
+
+    # Iterate over the range with the specified step
+    for i in range(start, end, step):
+        # Extract the current subset of data
+        A_i = C.iloc[i:i+6, :]    
+    
+        X = A_i['x'].mean()
+        Y = A_i['y'].mean()
+        Z = A_i['z'].mean()
+        element = 'X'
+    
+    
+        B_i = pd.DataFrame([element, X, Y, Z], index=['element', 'x', 'y', 'z'])
+        C_i = pd.DataFrame.transpose(B_i)
+        D_i = pd.concat([A_i, C_i], ignore_index=True)
+    
+        D.append(D_i)
+
+    AtomsCysTyr = pd.concat([S,O] + D, ignore_index=True)
+    #AtomsCysTyr.to_csv(os.path.join(save_folder, pdb_code, "AtomsCysTyr.xyz"), sep=' ', index=False, header=False) N.B if the # symbol is here deleted this row will generate the .xyz file of the selected atoms here considered 
+    gg = pd.concat(D, ignore_index=True)
+    ResiduesCysTyr = pd.concat([j,S,O] + D, ignore_index=True)
+    #ResiduesCysTyr.to_csv(os.path.join(save_folder, pdb_code, "ResiduesCysTyr.xyz"), sep=' ', index=False, header=False) N.B if the # symbol is here deleted this row will generate the .xyz file of the selected residues here considered
+
+#this code uses PandasPdb to read PDB files, 
+#extract atom and residue information, calculate respectly the X Y Z coordinate means for the six specific C carbon atoms that defined a selected aromatic ring,
+#and from that the code build the X element (that represent the ring mass centre) readble as a dummy atom with a chemical structural viewer,
+#and create new dataframes (AtomsCysTyr and ResiduesCysTyr) that contain the selected atoms and residues with the addiction of the rings mass center.
+############################################################################################################################################################################################################################################
+
+    SX = AtomsCysTyr.loc[AtomsCysTyr['element'] == 'S']
+
+    batch_size = 7  # Number of rows to process at a time (six for each carbon atoms of the ring + 1 for the X ring mass centre element appended benith them in the file)
+    total_rows = len(gg)  # Total number of rows in the DataFrame
+
+    # Create an empty list to store the processed batches
+    processed_batches = []
+
+    for i in range(0, total_rows, batch_size):
+        # Select the current batch of rows
+        batch_df = gg.iloc[i:i+batch_size, :]
+        # Process the batch_df
+        #print(batch_df)
+        CC1 = batch_df.loc[batch_df['element'] == 'C']
+        X_1 = batch_df.iloc[6,1:4]
+
+        b1 = np.array(X_1)
+        l1 = CC1.shape[0]
+        k1 = SX.shape[0]
+
+        c1 = []
+        for i in range(l1):
+            cc1 = CC1.iloc[i, 1:4]
+            C1 = np.array(cc1)
+            c1.append(C1)
+
+        n1 = []
+        for i in c1:
+            ba1 = i - b1
+            n1.append(ba1)
+
+        s1 = []
+        for i in range(k1):
+            ss1 = SX.iloc[i, 1:4]
+            S1 = np.array(ss1)
+            s1.append(S1)
+
+        o1 = []
+        for i in s1:
+            bc1 = i - b1
+            o1.append(bc1)
+
+        f1 = []
+        for t in s1:
+            for q in c1:
+                Dist1 = t - q
+                f1.append(Dist1)
+
+        Dist1 = pd.DataFrame(f1).T
+        Dist_1 = pd.DataFrame.transpose(Dist1)
+
+        dist_1 = Dist_1.shape[0]
+
+        a1 = []
+        for i in range(dist_1):
+            dx1 = Dist_1.iloc[i, 0]
+            dy1 = Dist_1.iloc[i, 1]
+            dz1 = Dist_1.iloc[i, 2]
+            DD1 = math.sqrt(dx1 ** 2 + dy1 ** 2 + dz1 ** 2)
+            a1.append(DD1)
+
+        distD1 = pd.DataFrame(a1).T
+        DDD1 = pd.DataFrame.transpose(distD1)
+
+        DistX1 = pd.DataFrame(o1).T
+        DDistX1 = pd.DataFrame.transpose(DistX1)
+
+        distX1 = DDistX1.shape[0]
+
+        b1 = []
+        for i in range(distX1):
+            dx1X = DDistX1.iloc[i, 0]
+            dy1X = DDistX1.iloc[i, 1]
+            dz1X = DDistX1.iloc[i, 2]
+            DDD1X = math.sqrt(dx1X ** 2 + dy1X ** 2 + dz1X ** 2)
+            b1.append(DDD1X)
+
+        distDX1 = pd.DataFrame(b1).T
+        DDX1 = pd.DataFrame.transpose(distDX1)
+
+        df1 = DDD1.reset_index(drop=True)
+        df3 = DDX1.reset_index(drop=True)
+
+        DistanceXS = df3.iloc[:, 0]
+        DistanceCS = df1.iloc[:, 0]
+
+        rang = df1.shape[0]
+        FG = []
+        for i in range(0, rang, 6):
+            FG.append(int(i))
+
+        dd_1 = pd.DataFrame(FG).T
+        DD_1 = pd.DataFrame.transpose(dd_1)
+
+        df_1 = DD_1.reset_index(drop=True)
+        Dist_XS1 = df_1.iloc[:, 0]
+
+        mix_1 = pd.DataFrame({"DDDD": Dist_XS1, "Distance_X_S": DistanceXS})
+        mix_1.set_index("DDDD", inplace=True)
+
+        zeros_1 = pd.Series(0, index=np.arange(len(df1)))
+        Zeros_1 = pd.DataFrame(zeros_1)
+        Xx_1 = mix_1.iloc[:, 0]
+        XX_1 = pd.DataFrame(Xx_1)
+
+        Concat_1 = pd.concat([Zeros_1, XX_1], axis=1)
+
+        Correct_1 = Concat_1.iloc[:, 1]
+
+        processed_batch = pd.concat([Correct_1, DistanceCS], axis=1)
+        processed_batch.columns = ["Distance_X-S_Å", "Distance_C-S_Å"]
+        empty_row = [np.nan] * len(processed_batch.columns)
+
+        # Create a DataFrame with the empty row
+        empty_df = pd.DataFrame([empty_row], columns=processed_batch.columns)
+
+        # Append the processed batch and empty row DataFrame to the list
+        processed_batches.append(processed_batch)
+        processed_batches.append(empty_df)
+
+    # Concatenate all the processed batches into a single DataFrame
+    processed_data = pd.concat(processed_batches, ignore_index=True)
+    #print(processed_data)
+    
+#in this code part the processes batches of data from the gg dataframe, calculates vectors and Euclidean distances,
+#such as the X mass centre - sulfur atoms distances and all the C carbon atoms - sulfur atoms distances definable in the considered protein context considered 
+#than it creates a processed_batch dataframe containing the calculated distances.
+
+    lower_bound = 3.0
+    upper_bound = 4.0
+    gg3 = []
+
+    # Filter the rows based on the range condition
+    filtered_rows = processed_data[(processed_data.iloc[:, 0] >= lower_bound) & (processed_data.iloc[:, 0] <= upper_bound)]
+
+    # Find the indices of the filtered rows
+    filtered_indices = filtered_rows.index.tolist()
+
+    # Select the next 6 rows from the DataFrame based on the filtered indices
+    for index in filtered_indices:
+        selected_rows = processed_data.iloc[index:index+6]
+        gg3.append(selected_rows)
+
+    # Create a secondary DataFrame with the selected rows
+    if gg3:
+        secondary_df1 = pd.concat(gg3, ignore_index=True)
+    
+        # Reset the index of the secondary DataFrame if desired
+        secondary_df1.reset_index(drop=True, inplace=True)
+
+        # Generate the XLSX file
+        secondary_df1.to_excel(os.path.join(save_folder, pdb_code, "GeomCysTyr.xlsx"), columns=['Distance_X-S_Å', 'Distance_C-S_Å'], index=False, header=True)
+    else:
+        print('no chalcogen-pi')
+        
+#this code part filters the processed data based on a range condition, 
+#selects consecutive rows meeting the condition, and saves the selected rows to an XLSX file if there are any. 
+#If no rows meet the condition, it prints a message indicating no "chalcogen-pi".
+######################################################################################################################################################################################        
+#These next code parts will repeat basically the previous ones but in the Cys-Phe interaction context
+
+    data_res=ppdb.read_pdb(os.path.join(save_folder, pdb_code, "atoms1CysPhe.pdb"))
+
+    element=ppdb.df['ATOM']['element_symbol']
+    x=ppdb.df['ATOM']['x_coord']
+    y=ppdb.df['ATOM']['y_coord']
+    z=ppdb.df['ATOM']['z_coord']
+    #print(element)
+
+    k = pd.DataFrame([element, x , y , z], index=['element', 'x', 'y', 'z'])
+    j = pd.DataFrame.transpose(k)
+
+    data=ppdb.read_pdb(os.path.join(save_folder, pdb_code, "atomsCysPhe.pdb"))
+
+
+    element=ppdb.df['ATOM']['element_symbol']
+    x=ppdb.df['ATOM']['x_coord']
+    y=ppdb.df['ATOM']['y_coord']
+    z=ppdb.df['ATOM']['z_coord']
+    #print(z)
+
+    g = pd.DataFrame([element, x , y , z], index=['element', 'x', 'y', 'z'])
+    d = pd.DataFrame.transpose(g)
+    S = d.loc[d['element']=='S']
+    O = d.loc[d['element']=='O']
+    C = d.loc[d['element']=='C']
+
+    D = []
+
+    # Define the range and step for the loop
+    start = 0
+    end = len(C)
+    step = 6
+
+    # Iterate over the range with the specified step
+    for i in range(start, end, step):
+        # Extract the current subset of data
+        A_i = C.iloc[i:i+6, :]    
+    
+        X = A_i['x'].mean()
+        Y = A_i['y'].mean()
+        Z = A_i['z'].mean()
+        element = 'X'
+    
+    
+        B_i = pd.DataFrame([element, X, Y, Z], index=['element', 'x', 'y', 'z'])
+        C_i = pd.DataFrame.transpose(B_i)
+        D_i = pd.concat([A_i, C_i], ignore_index=True)
+    
+        D.append(D_i)
+        
+    AtomsCysPhe = pd.concat([S] + D, ignore_index=True)
+    #AtomsCysPhe.to_csv(os.path.join(save_folder, pdb_code, "AtomsCysPhe.xyz"), sep=' ', index=False, header=False)
+    gg = pd.concat(D, ignore_index=True)
+    ResiduesCysPhe = pd.concat([j,S,O] + D, ignore_index=True)
+    #ResiduesCysPhe.to_csv(os.path.join(save_folder, pdb_code, "ResiduesCysPhe.xyz"), sep=' ', index=False, header=False)
+
+######################################################################################################################################################################################
+
+    SX = AtomsCysPhe.loc[AtomsCysPhe['element'] == 'S']
+
+    batch_size = 7  # Number of rows to process at a time
+    total_rows = len(gg)  # Total number of rows in the DataFrame
+
+    # Create an empty list to store the processed batches
+    processed_batches = []
+
+    for i in range(0, total_rows, batch_size):
+        # Select the current batch of rows
+        batch_df = gg.iloc[i:i+batch_size, :]
+        # Process the batch_df
+        #print(batch_df)
+        CC1 = batch_df.loc[batch_df['element'] == 'C']
+        X_1 = batch_df.iloc[6,1:4]
+
+        b1 = np.array(X_1)
+        l1 = CC1.shape[0]
+        k1 = SX.shape[0]
+
+        c1 = []
+        for i in range(l1):
+            cc1 = CC1.iloc[i, 1:4]
+            C1 = np.array(cc1)
+            c1.append(C1)
+
+        n1 = []
+        for i in c1:
+            ba1 = i - b1
+            n1.append(ba1)
+
+        s1 = []
+        for i in range(k1):
+            ss1 = SX.iloc[i, 1:4]
+            S1 = np.array(ss1)
+            s1.append(S1)
+
+        o1 = []
+        for i in s1:
+            bc1 = i - b1
+            o1.append(bc1)
+
+        f1 = []
+        for t in s1:
+            for q in c1:
+                Dist1 = t - q
+                f1.append(Dist1)
+
+        Dist1 = pd.DataFrame(f1).T
+        Dist_1 = pd.DataFrame.transpose(Dist1)
+
+        dist_1 = Dist_1.shape[0]
+
+        a1 = []
+        for i in range(dist_1):
+            dx1 = Dist_1.iloc[i, 0]
+            dy1 = Dist_1.iloc[i, 1]
+            dz1 = Dist_1.iloc[i, 2]
+            DD1 = math.sqrt(dx1 ** 2 + dy1 ** 2 + dz1 ** 2)
+            a1.append(DD1)
+
+        distD1 = pd.DataFrame(a1).T
+        DDD1 = pd.DataFrame.transpose(distD1)
+
+        DistX1 = pd.DataFrame(o1).T
+        DDistX1 = pd.DataFrame.transpose(DistX1)
+
+        distX1 = DDistX1.shape[0]
+
+        b1 = []
+        for i in range(distX1):
+            dx1X = DDistX1.iloc[i, 0]
+            dy1X = DDistX1.iloc[i, 1]
+            dz1X = DDistX1.iloc[i, 2]
+            DDD1X = math.sqrt(dx1X ** 2 + dy1X ** 2 + dz1X ** 2)
+            b1.append(DDD1X)
+
+        distDX1 = pd.DataFrame(b1).T
+        DDX1 = pd.DataFrame.transpose(distDX1)
+
+        df1 = DDD1.reset_index(drop=True)
+        df3 = DDX1.reset_index(drop=True)
+
+        DistanceXS = df3.iloc[:, 0]
+        DistanceCS = df1.iloc[:, 0]
+
+        rang = df1.shape[0]
+        FG = []
+        for i in range(0, rang, 6):
+            FG.append(int(i))
+
+        dd_1 = pd.DataFrame(FG).T
+        DD_1 = pd.DataFrame.transpose(dd_1)
+
+        df_1 = DD_1.reset_index(drop=True)
+        Dist_XS1 = df_1.iloc[:, 0]
+
+        mix_1 = pd.DataFrame({"DDDD": Dist_XS1, "Distance_X_S": DistanceXS})
+        mix_1.set_index("DDDD", inplace=True)
+
+        zeros_1 = pd.Series(0, index=np.arange(len(df1)))
+        Zeros_1 = pd.DataFrame(zeros_1)
+        Xx_1 = mix_1.iloc[:, 0]
+        XX_1 = pd.DataFrame(Xx_1)
+
+        Concat_1 = pd.concat([Zeros_1, XX_1], axis=1)
+
+        Correct_1 = Concat_1.iloc[:, 1]
+
+        processed_batch = pd.concat([Correct_1, DistanceCS], axis=1)
+        processed_batch.columns = ["Distance_X-S_Å", "Distance_C-S_Å"]
+        empty_row = [np.nan] * len(processed_batch.columns)
+
+        # Create a DataFrame with the empty row
+        empty_df = pd.DataFrame([empty_row], columns=processed_batch.columns)
+
+        # Append the processed batch and empty row DataFrame to the list
+        processed_batches.append(processed_batch)
+        processed_batches.append(empty_df)
+
+    # Concatenate all the processed batches into a single DataFrame
+    processed_data = pd.concat(processed_batches, ignore_index=True)
+
+    #print(processed_data)
+
+    lower_bound = 3.0
+    upper_bound = 4.0
+    gg4 = []
+
+    # Filter the rows based on the range condition
+    filtered_rows = processed_data[(processed_data.iloc[:, 0] >= lower_bound) & (processed_data.iloc[:, 0] <= upper_bound)]
+
+    # Find the indices of the filtered rows
+    filtered_indices = filtered_rows.index.tolist()
+
+    # Select the next 6 rows from the DataFrame based on the filtered indices
+    for index in filtered_indices:
+        selected_rows = processed_data.iloc[index:index+6]
+        gg4.append(selected_rows)
+
+    # Create a secondary DataFrame with the selected rows
+    if gg4:
+        secondary_df2 = pd.concat(gg4, ignore_index=True)
+    
+        # Reset the index of the secondary DataFrame if desired
+        secondary_df2.reset_index(drop=True, inplace=True)
+
+        # Generate the XLSX file
+        secondary_df2.to_excel(os.path.join(save_folder, pdb_code, "GeomCysPhe.xlsx"), columns=['Distance_X-S_Å', 'Distance_C-S_Å'], index=False, header=True)
+    else:
+        print('no chalcogen-pi')
+        
+######################################################################################################################################################################################
+    #deleting the unecessary files generated (user own choice; if some of them are of any interest it can be used the # damping symbol before them in the relatively line in file_paths)
+
+    file_paths = [
+        os.path.join(save_folder, pdb_code, pdb_code + ".pdb"),
+        os.path.join(save_folder, pdb_code, pdb_code + ".cif"),
+        os.path.join(save_folder, pdb_code, "residuesCysTyr.pdb"),
+        os.path.join(save_folder, pdb_code, "residuesCysPhe.pdb"),
+        os.path.join(save_folder, pdb_code, "atomsCysTyr.pdb"),
+        os.path.join(save_folder, pdb_code, "atomsCysPhe.pdb"),
+        os.path.join(save_folder, pdb_code, "atoms1CysTyr.pdb"),
+        os.path.join(save_folder, pdb_code, "atoms1CysPhe.pdb")
+    ]
+
+    # Delete each temporary files 
+    for file_path in file_paths:
+        try:
+            os.remove(file_path)
+            print(f"Deleted file: {file_path}")
+        except OSError as e:
+            print(f"Error occurred while deleting file: {file_path}")
+            print(e)
+            
+    import shutil
+
+    file_path1 = os.path.join(save_folder, pdb_code, "GeomCysTyr.xlsx")
+    file_path2 = os.path.join(save_folder, pdb_code, "GeomCysPhe.xlsx")
+
+    # Check if both secondary files are not present; if yes delete the entire folder
+    if not os.path.isfile(file_path1) and not os.path.isfile(file_path2):
+        try:
+            shutil.rmtree(os.path.join(save_folder, pdb_code))
+            print(f"Deleted folder: {os.path.join(save_folder, pdb_code)}")
+        except OSError as e:
+            print(f"Error occurred while deleting folder: {os.path.join(save_folder, pdb_code)}")
+            print(e)
+    else:
+        print("At least one of the secondary files is present. Folder not deleted.")
